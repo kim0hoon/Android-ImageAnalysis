@@ -13,9 +13,12 @@ import com.example.imageanalyzer.databinding.ItemPictureBinding
 
 class AlbumAdapter(val context: Context) : RecyclerView.Adapter<AlbumAdapter.PictureViewHolder>() {
 
-    private val diffUtil = object : DiffUtil.ItemCallback<Picture>() {
-        override fun areItemsTheSame(oldItem: Picture, newItem: Picture) = oldItem.id == newItem.id
-        override fun areContentsTheSame(oldItem: Picture, newItem: Picture) = oldItem == newItem
+    private val diffUtil = object : DiffUtil.ItemCallback<PictureItem>() {
+        override fun areItemsTheSame(oldItem: PictureItem, newItem: PictureItem) =
+            oldItem.picture.id == newItem.picture.id
+
+        override fun areContentsTheSame(oldItem: PictureItem, newItem: PictureItem) =
+            oldItem == newItem
     }
 
     val dataList = AsyncListDiffer(this, diffUtil)
@@ -36,11 +39,11 @@ class AlbumAdapter(val context: Context) : RecyclerView.Adapter<AlbumAdapter.Pic
         private val uriTextView = binding.tvUri
         private val typeTextView = binding.tvType
         private val timeTextView = binding.tvTime
-        fun bind(data: Picture) {
+        fun bind(data: PictureItem) {
             uriTextView.text = "uri : uri"
             typeTextView.text = "종류 : 종류"
             timeTextView.text = "소요시간 : 0.000212312s"
-            Glide.with(context).load(data.uri).placeholder(R.drawable.ic_photo)
+            Glide.with(context).load(data.picture.uri).placeholder(R.drawable.ic_photo)
                 .error(R.drawable.ic_error).fitCenter().into(binding.ivImage)
         }
     }

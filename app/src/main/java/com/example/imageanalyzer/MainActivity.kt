@@ -14,7 +14,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val albumAdapter = AlbumAdapter(this)
-    private val dataList = MutableLiveData(mutableListOf<Picture>()).apply {
+    private val dataList = MutableLiveData(mutableListOf<PictureItem>()).apply {
         observe(this@MainActivity) {
             albumAdapter.dataList.submitList(it)
         }
@@ -53,8 +53,7 @@ class MainActivity : AppCompatActivity() {
             while (moveToNext()) {
                 val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
                 val contentUri = "$uri/$id"
-                Log.d("ContentProvider", "$id $contentUri")
-                (dataList.value ?: mutableListOf()).add(Picture(id, contentUri))
+                (dataList.value ?: mutableListOf()).add(analysisPicture(Picture(id, contentUri)))
             }
             close()
         }
@@ -62,5 +61,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermission() {
         requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+
+    private fun analysisPicture(picture: Picture): PictureItem {
+        return PictureItem(picture,"",0.0)
     }
 }
