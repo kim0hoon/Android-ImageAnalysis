@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ImageAnalyzer</string>
+    <string name="picture">사진</string>
 </resources>
