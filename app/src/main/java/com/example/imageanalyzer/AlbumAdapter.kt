@@ -1,10 +1,8 @@
 package com.example.imageanalyzer
 
 import android.content.Context
-import android.content.Intent
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat.startActivity
 import androidx.recyclerview.widget.AsyncListDiffer
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -36,13 +34,16 @@ class AlbumAdapter(val context: Context) : RecyclerView.Adapter<AlbumAdapter.Pic
 
     inner class PictureViewHolder(private val binding: ItemPictureBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        private val uriTextView = binding.tvUri
+        private val uriTextView = binding.tvId
         private val typeTextView = binding.tvType
         private val timeTextView = binding.tvTime
         fun bind(data: PictureItem) {
-            uriTextView.text = "uri : uri"
-            typeTextView.text = "종류 : 종류"
-            timeTextView.text = "소요시간 : 0.000212312s"
+            val idText = "ID : ${data.picture.id}"
+            val timeText = "소요시간 : ${data.time}"
+            val typeText = "분석결과\n${data.type}"
+            uriTextView.text = idText
+            timeTextView.text = timeText
+            typeTextView.text = typeText
             Glide.with(context).load(data.picture.uri).placeholder(R.drawable.ic_photo)
                 .error(R.drawable.ic_error).fitCenter().into(binding.ivImage)
         }

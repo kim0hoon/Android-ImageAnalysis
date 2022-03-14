@@ -1,14 +1,20 @@
 package com.example.imageanalyzer
 
 import android.Manifest
-import androidx.appcompat.app.AppCompatActivity
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.MutableLiveData
 import com.example.imageanalyzer.databinding.ActivityMainBinding
+import com.example.imageanalyzer.ml.LiteModelAiyVisionClassifierFoodV11
+import org.tensorflow.lite.support.image.TensorImage
 
 class MainActivity : AppCompatActivity() {
 
@@ -16,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private val albumAdapter = AlbumAdapter(this)
     private val dataList = MutableLiveData(mutableListOf<PictureItem>()).apply {
         observe(this@MainActivity) {
+            Log.i("TEST", "submit : ${it.size}")
             albumAdapter.dataList.submitList(it)
         }
     }
@@ -33,6 +40,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private lateinit var model: LiteModelAiyVisionClassifierFoodV11
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -45,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initData() {
+        model = LiteModelAiyVisionClassifierFoodV11.newInstance(this)
         val resolver = contentResolver
         val query = arrayOf(MediaStore.Images.Media._ID)
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
@@ -57,13 +66,33 @@ class MainActivity : AppCompatActivity() {
             }
             close()
         }
+        model.close()
     }
 
     private fun checkPermission() {
         requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
+
     private fun analysisPicture(picture: Picture): PictureItem {
-        return PictureItem(picture,"",0.0)
+        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            ImageDecoder.decodeBitmap(
+                ImageDecoder.createSource(
+                    contentResolver,
+                    Uri.parse(picture.uri)
+                )
+            )
+        } else {
+            MediaStore.Images.Media.getBitmap(contentResolver, Uri.parse(picture.uri))
+        }.run { copy(Bitmap.Config.ARGB_8888, true) }
+        val image = TensorImage.fromBitmap(bitmap)
+
+        val outputs = model.process(image)
+        val probability = outputs.probabilityAsCategoryList
+        return PictureItem(picture,
+            probability.filter { it.score > 0.0f }.toMutableList().apply { sortByDescending { it.score } }
+                .joinToString("\n") { "${it.displayName} ${it.label} ${it.score}" },
+            0.0
+        )
     }
 }
