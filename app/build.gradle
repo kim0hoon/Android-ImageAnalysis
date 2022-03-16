@@ -54,4 +54,7 @@ dependencies {
 
     //tensorflow lite
     implementation 'org.tensorflow:tensorflow-lite:2.4.0'
+
+    //Coroutine
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.1'
 }
