@@ -14,6 +14,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.MutableLiveData
 import com.example.imageanalyzer.databinding.ActivityMainBinding
 import com.example.imageanalyzer.ml.LiteModelAiyVisionClassifierFoodV11
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.launch
 import org.tensorflow.lite.support.image.TensorImage
 
 class MainActivity : AppCompatActivity() {
@@ -22,8 +25,7 @@ class MainActivity : AppCompatActivity() {
     private val albumAdapter = AlbumAdapter(this)
     private val dataList = MutableLiveData(mutableListOf<PictureItem>()).apply {
         observe(this@MainActivity) {
-            Log.i("TEST", "submit : ${it.size}")
-            albumAdapter.dataList.submitList(it)
+            albumAdapter.dataList.submitList(it.toMutableList())
         }
     }
 
@@ -59,14 +61,17 @@ class MainActivity : AppCompatActivity() {
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
         resolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, query, null, null, null)?.run {
-            while (moveToNext()) {
-                val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
-                val contentUri = "$uri/$id"
-                (dataList.value ?: mutableListOf()).add(analysisPicture(Picture(id, contentUri)))
+            CoroutineScope(IO).launch {
+                while (moveToNext()) {
+                    val id = getLong(getColumnIndexOrThrow(MediaStore.Images.Media._ID))
+                    val contentUri = "$uri/$id"
+                    val item = analysisPicture(Picture(id, contentUri))
+                    dataList.postValue((dataList.value ?: mutableListOf()).apply { add(item) })
+                }
+                close()
+                model.close()
             }
-            close()
         }
-        model.close()
     }
 
     private fun checkPermission() {
@@ -75,24 +80,31 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun analysisPicture(picture: Picture): PictureItem {
-        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            ImageDecoder.decodeBitmap(
-                ImageDecoder.createSource(
-                    contentResolver,
-                    Uri.parse(picture.uri)
+        try {
+            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ImageDecoder.decodeBitmap(
+                    ImageDecoder.createSource(
+                        contentResolver,
+                        Uri.parse(picture.uri)
+                    )
                 )
-            )
-        } else {
-            MediaStore.Images.Media.getBitmap(contentResolver, Uri.parse(picture.uri))
-        }.run { copy(Bitmap.Config.ARGB_8888, true) }
-        val image = TensorImage.fromBitmap(bitmap)
+            } else {
+                MediaStore.Images.Media.getBitmap(contentResolver, Uri.parse(picture.uri))
+            }.run { copy(Bitmap.Config.ARGB_8888, true) }
+            val image = TensorImage.fromBitmap(bitmap)
 
-        val outputs = model.process(image)
-        val probability = outputs.probabilityAsCategoryList
-        return PictureItem(picture,
-            probability.filter { it.score > 0.0f }.toMutableList().apply { sortByDescending { it.score } }
-                .joinToString("\n") { "${it.displayName} ${it.label} ${it.score}" },
-            0.0
-        )
+            val outputs = model.process(image)
+            val probability = outputs.probabilityAsCategoryList
+            return PictureItem(picture,
+                probability.filter { it.score > 0.1f }.toMutableList()
+                    .apply { sortByDescending { it.score } }
+                    .joinToString("\n") { "${it.displayName} ${it.label} ${it.score}" },
+                0.0
+            )
+        } catch (e: Exception) {
+            Log.e("analysisPicture", "${e.message}")
+            return PictureItem(picture, "", 0.0)
+        }
     }
+
 }
